@@ -45,6 +45,10 @@ public final class Constants {
     public static final double kBackLeftChassisAngularOffset = Math.PI;
     public static final double kBackRightChassisAngularOffset = Math.PI / 2;
 
+    // Reefscape snap angles in degrees
+    public static final double[] kSnapAngles = {0, 60, 90, 120, 180, 240, 270, 300, 360};
+    public static final double kSnapDeadzoneDeg = 3.0; // tolerance around a snap point
+
     // SPARK MAX CAN IDs
     public static final int kFrontLeftDrivingCanId = 13;
     public static final int kRearLeftDrivingCanId = 12;
@@ -55,8 +59,15 @@ public final class Constants {
     public static final int kRearLeftTurningCanId = 22;
     public static final int kFrontRightTurningCanId = 20;
     public static final int kRearRightTurningCanId = 21;
-
+    
     public static final boolean kGyroReversed = true;
+    
+    // Algae CAN IDs
+    public static final int kAlgaePivotCanId = 30;
+    public static final int kAlgaeRollerCanId = 31;
+    
+    // Coral CAN IDs
+    public static final int kCoralCANId = 40;
   }
 
   public static final class ModuleConstants {

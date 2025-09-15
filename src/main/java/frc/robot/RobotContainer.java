@@ -20,14 +20,17 @@ import frc.robot.Constants.AutoConstants;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.OIConstants;
 import frc.robot.commands.WheelDiameterCalibrationCommand;
+import frc.robot.subsystems.CoralSubsystem;
 import frc.robot.subsystems.DriveSubsystem;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import java.util.List;
+import java.util.function.Supplier;
 
 /*
  * This class is where the bulk of the robot should be declared.  Since Command-based is a
@@ -54,6 +57,53 @@ public class RobotContainer {
 
     private final WheelDiameterCalibrationCommand wheelDiameterCalibrationCommand = new WheelDiameterCalibrationCommand(m_robotDrive);
 
+    private final CoralSubsystem m_coralSubsystem = new CoralSubsystem(40);
+
+      //angle snapping commnads and logic
+    private double getNextSnapAngleCW(double currentAngleDeg) {
+        currentAngleDeg = Math.IEEEremainder(currentAngleDeg, 360);
+        if (currentAngleDeg < 0) currentAngleDeg += 360;
+
+        for (double angle : DriveConstants.kSnapAngles) {
+            if (Math.abs(currentAngleDeg - angle) <= DriveConstants.kSnapDeadzoneDeg) continue;
+            if (angle > currentAngleDeg + 1e-3) return angle;
+        }
+    return DriveConstants.kSnapAngles[0]; // wrap around
+    }
+
+    private double getNextSnapAngleCCW(double currentAngleDeg) {
+        currentAngleDeg = Math.IEEEremainder(currentAngleDeg, 360);
+        if (currentAngleDeg < 0) currentAngleDeg += 360;
+
+        for (int i = DriveConstants.kSnapAngles.length - 1; i >= 0; i--) {
+            double angle = DriveConstants.kSnapAngles[i];
+            if (Math.abs(currentAngleDeg - angle) <= DriveConstants.kSnapDeadzoneDeg) continue;
+            if (angle < currentAngleDeg - 1e-3) return angle;
+        }
+    return DriveConstants.kSnapAngles[DriveConstants.kSnapAngles.length - 1]; // wrap around
+    }
+
+    private Command snapToAngleCommand(Supplier<Double> targetAngleSupplier) {
+        ProfiledPIDController thetaController =
+            new ProfiledPIDController(5.0, 0, 0,
+                new TrapezoidProfile.Constraints(720, 720));
+        thetaController.enableContinuousInput(-180, 180);
+
+        return new RunCommand(() -> {
+            double currentAngle = m_robotDrive.getHeading()+180;
+            double target = Math.toDegrees(targetAngleSupplier.get());
+            double rotationSpeed = thetaController.calculate(currentAngle, target);
+
+        // Normal drive for translation, rotation controlled by PID
+        m_robotDrive.drive(
+            -MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband),
+            -MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband),
+            rotationSpeed,
+            !robotOriented,
+            openLoop
+        );
+    }, m_robotDrive).until(() -> Math.abs(thetaController.getPositionError()) < 2.0);
+    }
   /**
    * The container for the robot. Contains subsystems, OI devices, and commands.
    */
@@ -82,7 +132,7 @@ public class RobotContainer {
                     openLoop);
             },
             m_robotDrive));
-
+        
     // Configure autonomous commands
     configureAutonomousCommands();
   }
@@ -98,20 +148,72 @@ public class RobotContainer {
    */
   private void configureButtonBindings() {
     //When right bumper pessed set wheels to X mode
-    new JoystickButton(m_driverController, XboxController.Button.kRightBumper.value)
+    new JoystickButton(m_driverController, XboxController.Button.kX.value)
         .whileTrue(new RunCommand(
             () -> m_robotDrive.setX(),
             m_robotDrive));
 
     //when Left bumper pressed zero the navx heading once
-    new JoystickButton(m_driverController, XboxController.Button.kLeftBumper.value)
+    new JoystickButton(m_driverController, XboxController.Button.kB.value)
         .onTrue(new InstantCommand(
             () -> m_robotDrive.zeroHeading(),
             m_robotDrive));
 
-    //When A button is pressed Toggle between field- and robot-relative
-    new JoystickButton(m_driverController, XboxController.Button.kA.value)
-        .onTrue(new InstantCommand(() -> robotOriented = !robotOriented));
+    //While A button is Held Activate robot-relative
+    new JoystickButton(m_driverController, XboxController.Button.kY.value)
+        .onTrue(new InstantCommand(() -> robotOriented = true));
+
+    //While A button is not Held deactivate robot-relative
+    new JoystickButton(m_driverController, XboxController.Button.kY.value)
+        .onFalse(new InstantCommand(() -> robotOriented = false));
+
+    // // Snap robot clockwise to next allowed angle
+    // new JoystickButton(m_driverController, XboxController.Button.kRightBumper.value)
+    //     .onTrue(snapToAngleCommand(() ->
+    //     getNextSnapAngleCW(m_robotDrive.getHeading()+180)));
+
+    // // Snap robot counter-clockwise to next allowed angle
+    // new JoystickButton(m_driverController, XboxController.Button.kLeftBumper.value)
+    //     .onTrue(snapToAngleCommand(() ->
+    //     getNextSnapAngleCCW(m_robotDrive.getHeading()+180)));
+
+
+    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    new Trigger(() -> m_driverController.getRightTriggerAxis() > 0.1 && m_driverController.getRightTriggerAxis() < 0.7)
+        .whileTrue(new RunCommand(
+            () -> m_coralSubsystem.setRollerSpeed(0.18),
+            m_coralSubsystem))
+        .onFalse(new InstantCommand(
+            () -> m_coralSubsystem.stopRoller(),
+            m_coralSubsystem));
+
+    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    new Trigger(() -> m_driverController.getRightTriggerAxis() > 0.71)
+        .whileTrue(new RunCommand(
+            () -> m_coralSubsystem.setRollerSpeed(0.5),
+            m_coralSubsystem))
+        .onFalse(new InstantCommand(
+            () -> m_coralSubsystem.stopRoller(),
+            m_coralSubsystem));
+
+    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    new Trigger(() -> m_driverController.getLeftTriggerAxis() > 0.1 && m_driverController.getLeftTriggerAxis() < 0.7)
+        .whileTrue(new RunCommand(
+            () -> m_coralSubsystem.setRollerSpeed(-0.18),
+            m_coralSubsystem))
+        .onFalse(new InstantCommand(
+            () -> m_coralSubsystem.stopRoller(),
+            m_coralSubsystem));
+
+    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    new Trigger(() -> m_driverController.getLeftTriggerAxis() > 0.71)
+        .whileTrue(new RunCommand(
+            () -> m_coralSubsystem.setRollerSpeed(-0.5),
+            m_coralSubsystem))
+        .onFalse(new InstantCommand(
+            () -> m_coralSubsystem.stopRoller(),
+            m_coralSubsystem));
+    
   }
 
   private void configureAutonomousCommands() {
