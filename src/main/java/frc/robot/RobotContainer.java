@@ -26,6 +26,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -218,21 +219,35 @@ public class RobotContainer {
 
   private void configureAutonomousCommands() {
     Trajectory straightPath = createStraightLineTrajectory();
+    Trajectory reversePath = createReverseTrajectory();
     Trajectory sCurvePath = createSCurveTrajectory();
 
     Command straightAuto = createSwerveAutoCommand(straightPath)
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
+    Command reverseAuto = createSwerveAutoCommand(reversePath)
         .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
     Command sCurveAuto = createSwerveAutoCommand(sCurvePath)
         .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
 
     Command resetStraight = new InstantCommand(() -> m_robotDrive.resetOdometry(straightPath.getInitialPose()))
         .andThen(straightAuto);
+        Command reverseStraight = new InstantCommand(() -> m_robotDrive.resetOdometry(straightPath.getInitialPose()))
+        .andThen(straightAuto);
     Command resetSCurve = new InstantCommand(() -> m_robotDrive.resetOdometry(sCurvePath.getInitialPose()))
         .andThen(sCurveAuto);
 
-    autoChooser.setDefaultOption("Straight Path", resetStraight);
+    // Place coral auto
+    Command straightLineWithOuttake = resetStraight
+        .andThen(new WaitCommand(0.25))
+        .andThen(new InstantCommand(() -> m_coralSubsystem.setRollerSpeed(0.5)))
+        .andThen(new WaitCommand(1))
+        .andThen(new InstantCommand(() -> m_coralSubsystem.stopRoller()))
+        .andThen(resetStraight);
+    
+    autoChooser.setDefaultOption("Straight Line with Outtake", straightLineWithOuttake);
     autoChooser.addOption("S-Curve Path", resetSCurve);
     autoChooser.addOption("Wheel Diameter Calibration", wheelDiameterCalibrationCommand);
+    autoChooser.addOption("Straight Path", resetStraight);
 
     SmartDashboard.putData("Auto Mode", autoChooser);
   }
@@ -265,11 +280,21 @@ public class RobotContainer {
       return TrajectoryGenerator.generateTrajectory(
           List.of(
               new Pose2d(0, 0, new Rotation2d(0)), // Start position
-              new Pose2d(1, 0, new Rotation2d(0))  // End position (3 meters forward)
+              new Pose2d(1.5, 0, new Rotation2d(0))  // End position (3 meters forward)
           ),
           new TrajectoryConfig(1, 1.0) // Max speed and acceleration
       );
   }
+
+  private Trajectory createReverseTrajectory() {
+    return TrajectoryGenerator.generateTrajectory(
+        List.of(
+            new Pose2d(0, 0, new Rotation2d(0)), // Start position
+            new Pose2d(-1, 0, new Rotation2d(0))  // End position (3 meters forward)
+        ),
+        new TrajectoryConfig(1, 1.0) // Max speed and acceleration
+    );
+}
 
   /**
    * Creates an S-curve trajectory for autonomous.
