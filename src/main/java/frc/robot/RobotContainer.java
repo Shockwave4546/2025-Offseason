@@ -229,6 +229,11 @@ public class RobotContainer {
     Command sCurveAuto = createSwerveAutoCommand(sCurvePath)
         .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
 
+    /**
+     * All commands are resetting at the moment which makes each segment realative. 
+     * Once odometrey is fused or in the futire get rid of resets and then add the necessary absolute
+     */
+
     Command resetStraight = new InstantCommand(() -> m_robotDrive.resetOdometry(straightPath.getInitialPose()))
         .andThen(straightAuto);
         Command reverseStraight = new InstantCommand(() -> m_robotDrive.resetOdometry(straightPath.getInitialPose()))
@@ -242,7 +247,7 @@ public class RobotContainer {
         .andThen(new InstantCommand(() -> m_coralSubsystem.setRollerSpeed(0.5)))
         .andThen(new WaitCommand(1))
         .andThen(new InstantCommand(() -> m_coralSubsystem.stopRoller()))
-        .andThen(resetStraight);
+        .andThen(reverseStraight);
     
     autoChooser.setDefaultOption("Straight Line with Outtake", straightLineWithOuttake);
     autoChooser.addOption("S-Curve Path", resetSCurve);
