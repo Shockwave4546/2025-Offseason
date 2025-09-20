@@ -265,7 +265,7 @@ public class RobotContainer {
       return TrajectoryGenerator.generateTrajectory(
           List.of(
               new Pose2d(0, 0, new Rotation2d(0)), // Start position
-              new Pose2d(1, 0, new Rotation2d(0))  // End position (3 meters forward)
+              new Pose2d(2.52, 0, new Rotation2d(0))  // End position (3 meters forward)
           ),
           new TrajectoryConfig(1, 1.0) // Max speed and acceleration
       );
