@@ -32,6 +32,17 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import java.util.List;
 import java.util.function.Supplier;
 
+// Joe's Import - 20250921
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj2.command.button.POVButton; // uses the POV or dPad buttons, probably can be done another way
+// import edu.wpi.first.wpilibj2.command.Command;   // Already imported...
+import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.subsystems.ServoSubsystem;
+import frc.robot.Constants.ServoConstants;
+import frc.robot.commands.ServoFullOn;
+import frc.robot.commands.ServoFullOff;
+
+
 /*
  * This class is where the bulk of the robot should be declared.  Since Command-based is a
  * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
@@ -39,11 +50,16 @@ import java.util.function.Supplier;
  * (including subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
-  // The robot's subsystems
-  private final DriveSubsystem m_robotDrive = new DriveSubsystem();
 
-  // The driver's controller
-  XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
+    // can move me...
+    // Joe's ServoSubsystem - 20250921
+    private final ServoSubsystem m_ServoSubsystem = new ServoSubsystem(ServoConstants.kServoPWMPort);
+
+    // The robot's subsystems
+    private final DriveSubsystem m_robotDrive = new DriveSubsystem();
+
+    // The driver's controller
+    XboxController m_driverController = new XboxController(OIConstants.kDriverControllerPort);
 
     // Add toggle to switch between field-relative and robot-relative driving
     private boolean robotOriented = false;
@@ -147,6 +163,14 @@ public class RobotContainer {
    * {@link JoystickButton}.
    */
   private void configureButtonBindings() {
+
+    // Can move me...
+    // Joe's D-PAD mapping for now for the FullOn/FullOff
+    // Left D-Pad = Full On - this is when it is tugged under the Extension Wing on start up
+    new POVButton(m_driverController, 270).onTrue(new ServoFullOn(m_ServoSubsystem)); 
+    // Right D-Pad = Full Off...This is when Arm is on the Outside as seem from outside.  Flip the Extension
+    new POVButton(m_driverController, 90).onTrue(new ServoFullOff(m_ServoSubsystem)); 
+
     //When right bumper pessed set wheels to X mode
     new JoystickButton(m_driverController, XboxController.Button.kX.value)
         .whileTrue(new RunCommand(
@@ -216,6 +240,20 @@ public class RobotContainer {
     
   }
 
+/*
+ * Joe - 20250921
+ * Need to add the following to the autonomous command...I'm using a dead timer so probably need to make adjustments - wouldn't matter what/how really
+ *
+  public Command getAutonomousCommand() {
+    // quick just stack these command instead of getting from the Auto Selector for now...
+    return Commands.sequence(
+      Commands.waitSeconds(3),
+      new ServoFullOff(m_ServoSubsystem),
+      Commands.waitSeconds(1), // Wait 1 second and then restore back to start position.
+      new ServoFullOn(m_ServoSubsystem)
+    );
+  }
+ */
   private void configureAutonomousCommands() {
     Trajectory straightPath = createStraightLineTrajectory();
     Trajectory sCurvePath = createSCurveTrajectory();

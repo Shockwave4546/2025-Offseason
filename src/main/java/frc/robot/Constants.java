@@ -110,4 +110,18 @@ public final class Constants {
   public static final class NeoMotorConstants {
     public static final double kFreeSpeedRpm = 5676;
   }
+
+  // PWM Ports and FullON and FullOFF constants - Joe - 20250921
+  public static final class ServoConstants {
+    // Define the PWM port for the servo...use the one closest to the end for now = Port 9 [0 = starts]
+    public static final int kServoPWMPort = 9;
+
+    // Servo is already set to uses 2 extreme using the external programmer so using 0 and 1.
+    // It actually doesn't travel all from 0 to 1, just the programmer sets it to ignore all angles beyond what are programmed as Left and Right
+    // FullOn = Default = 1 and FullOff = Flip the Extension Out = 0.
+    // This is then mapped to the D-Pad Left and Right buttons under the configureBindings() in RobotContainer
+    public static final double kFullOff = 0.0;
+    public static final double kFullOn = 1.0;
+  }
+
 }
