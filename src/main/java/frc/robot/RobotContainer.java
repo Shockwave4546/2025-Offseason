@@ -42,6 +42,7 @@ import frc.robot.Constants.ServoConstants;
 import frc.robot.commands.ServoFullOn;
 import frc.robot.commands.ServoFullOff;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
+import frc.robot.commands.CoralAutoOn;
 
 
 /*
@@ -262,11 +263,13 @@ public class RobotContainer {
     // Add local Command to be used to chain after the Straight AUTO
     Command servoON = new ServoFullOn(m_ServoSubsystem);
     Command servoOFF = new ServoFullOff(m_ServoSubsystem);
+    // Added a new Command to make life a bit easier to stack - horrible naming though.
+    Command AutoCoralOn = new CoralAutoOn(m_coralSubsystem);
 
     Command straightAuto = createSwerveAutoCommand(straightPath)
         .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false))
         .andThen(servoOFF)
-        .andThen(new WaitCommand(3))
+        .andThen(AutoCoralOn)
         .andThen(servoON);
 
     Command sCurveAuto = createSwerveAutoCommand(sCurvePath)
@@ -309,10 +312,11 @@ public class RobotContainer {
    * @return A trajectory that moves straight forward.
    */
   private Trajectory createStraightLineTrajectory() {
+    // 2.52 was done at Portland with #3 wheel dragging, so backing off to what it should be
       return TrajectoryGenerator.generateTrajectory(
           List.of(
               new Pose2d(0, 0, new Rotation2d(0)), // Start position
-              new Pose2d(2.52, 0, new Rotation2d(0))  // End position (3 meters forward)
+              new Pose2d(2.28, 0, new Rotation2d(0))  // End position (3 meters forward)
           ),
           new TrajectoryConfig(1, 1.0) // Max speed and acceleration
       );
