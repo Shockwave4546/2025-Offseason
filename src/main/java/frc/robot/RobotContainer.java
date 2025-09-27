@@ -41,6 +41,7 @@ import frc.robot.subsystems.ServoSubsystem;
 import frc.robot.Constants.ServoConstants;
 import frc.robot.commands.ServoFullOn;
 import frc.robot.commands.ServoFullOff;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
 
 
 /*
@@ -258,8 +259,16 @@ public class RobotContainer {
     Trajectory straightPath = createStraightLineTrajectory();
     Trajectory sCurvePath = createSCurveTrajectory();
 
+    // Add local Command to be used to chain after the Straight AUTO
+    Command servoON = new ServoFullOn(m_ServoSubsystem);
+    Command servoOFF = new ServoFullOff(m_ServoSubsystem);
+
     Command straightAuto = createSwerveAutoCommand(straightPath)
-        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false))
+        .andThen(servoOFF)
+        .andThen(new WaitCommand(3))
+        .andThen(servoON);
+
     Command sCurveAuto = createSwerveAutoCommand(sCurvePath)
         .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false));
 
