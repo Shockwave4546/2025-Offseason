@@ -15,7 +15,8 @@ public class CoralAutoOn extends Command {
 
     @Override
     public void initialize() {
-        m_coralSubsystem.setRollerSpeed(0.5);
+        // set speed from 0.5 to 0 to not sends it out
+        m_coralSubsystem.setRollerSpeed(0.0);
         m_timer.reset(); // Reset the timer to zero
         m_timer.start(); // Start counting
         System.out.println("Starting Coral command...");
