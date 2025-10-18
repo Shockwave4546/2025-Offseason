@@ -56,7 +56,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     
     // Constants - POSITION TARGETS (in degrees)
     public static final double REST_ANGLE = 0;      // Horizontal, pointing back
-    public static final double ENGAGED_ANGLE = 140.0;    // 5 0° above horizontal eyeball and tune 
+    public static final double ENGAGED_ANGLE = 170.0;    // 5 0° above horizontal eyeball and tune 
     
     // Constants - MOTION PROFILE LIMITS
     // Start conservative, tune based on testing
@@ -108,7 +108,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         SparkMaxConfig config = new SparkMaxConfig();
         
         // Motor configuration
-        config.inverted(false);  // TODO: Check direction in testing - DIRECTION!!! [make sure to use the without ARM 1st and then add back the ARM]
+        config.inverted(true);  // TODO: Check direction in testing - DIRECTION!!! [make sure to use the without ARM 1st and then add back the ARM]
         config.idleMode(SparkMaxConfig.IdleMode.kBrake);    // Brake Mode, dont need it to squeeze too much on Algea
         config.smartCurrentLimit(30);  // most likely can go even way less than this...right now assuming using NEO, otherwise look up NEO550/others stalk
         
