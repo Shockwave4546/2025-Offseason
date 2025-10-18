@@ -43,6 +43,7 @@ import frc.robot.commands.ServoFullOn;
 import frc.robot.commands.ServoFullOff;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.commands.CoralAutoOn;
+import frc.robot.subsystems.HorizontalArmSubsystem ;
 
 
 /*
@@ -56,6 +57,7 @@ public class RobotContainer {
     // can move me...
     // Joe's ServoSubsystem - 20250921
     private final ServoSubsystem m_ServoSubsystem = new ServoSubsystem(ServoConstants.kServoPWMPort);
+    private final HorizontalArmSubsystem m_HorizontalArmSubsystem = new HorizontalArmSubsystem();
 
     // The robot's subsystems
     private final DriveSubsystem m_robotDrive = new DriveSubsystem();
@@ -172,6 +174,19 @@ public class RobotContainer {
     new POVButton(m_driverController, 270).onTrue(new ServoFullOn(m_ServoSubsystem)); 
     // Right D-Pad = Full Off...This is when Arm is on the Outside as seem from outside.  Flip the Extension
     new POVButton(m_driverController, 90).onTrue(new ServoFullOff(m_ServoSubsystem)); 
+    // Added these buttons for the ARM - added 10/11/25 + 10/18/25
+    new POVButton(m_driverController, 180).onTrue(m_HorizontalArmSubsystem.moveToEngagedCommand());
+    new POVButton(m_driverController, 0).onTrue(m_HorizontalArmSubsystem.moveToRestCommand());
+//    new POVButton(m_driverController, 180).whileTrue(m_HorizontalArmSubsystem.manualUpCommand());
+//    new POVButton(m_driverController, 0).whileTrue(m_HorizontalArmSubsystem.manualDownCommand());
+    new JoystickButton(m_driverController, 7).onTrue(m_HorizontalArmSubsystem.resetEncoderCommand());
+    new JoystickButton(m_driverController, 8).onTrue(
+        Commands.either(
+        m_HorizontalArmSubsystem.disableCalibrationCommand(),
+        m_HorizontalArmSubsystem.enableCalibrationCommand(),
+        () -> SmartDashboard.getBoolean("Arm/Calibration Mode", false)
+        )
+    );
 
     //When right bumper pessed set wheels to X mode
     new JoystickButton(m_driverController, XboxController.Button.kX.value)
