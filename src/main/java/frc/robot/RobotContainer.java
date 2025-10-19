@@ -135,7 +135,7 @@ public class RobotContainer {
     SmartDashboard.putNumber("Speed Multiplier", speedMultiplier);
     
     // Add prominent arm status display
-    SmartDashboard.putString("ARM STATUS", "NOT ZEROED - Press BACK when at REST");
+    SmartDashboard.putString("ARM STATUS", "WARNING - NOT ZEROED - Press BACK when at REST");
 
     // Configure default commands
     m_robotDrive.setDefaultCommand(
@@ -287,6 +287,7 @@ public class RobotContainer {
   private void configureAutonomousCommands() {
     Trajectory straightPath = createStraightLineTrajectory();
     Trajectory sCurvePath = createSCurveTrajectory();
+    Trajectory straightBackPath = createStraightBackTrajectory();
 
     // Add local Command to be used to chain after the Straight AUTO
     Command servoON = new ServoFullOn(m_ServoSubsystem);
@@ -305,10 +306,13 @@ public class RobotContainer {
 
     Command resetStraight = new InstantCommand(() -> m_robotDrive.resetOdometry(straightPath.getInitialPose()))
         .andThen(straightAuto);
+
     Command resetSCurve = new InstantCommand(() -> m_robotDrive.resetOdometry(sCurvePath.getInitialPose()))
         .andThen(sCurveAuto);
 
-    autoChooser.setDefaultOption("Straight Path", resetStraight);
+    autoChooser.setDefaultOption("BOB/GBTG Full Algae + Coral", armEngagementAuto);
+    //    autoChooser.setDefaultOption("Straight Path", resetStraight);
+    autoChooser.addOption("Straight Path", resetStraight);
     autoChooser.addOption("S-Curve Path", resetSCurve);
     autoChooser.addOption("Wheel Diameter Calibration", wheelDiameterCalibrationCommand);
 
@@ -334,6 +338,29 @@ public class RobotContainer {
     );
   }
 
+// ===== NEW: Arm Engagement Auto =====
+    // Create custom trajectories for arm engagement sequence
+    Trajectory forwardPath = createForwardTrajectory(2.286);  // 90 inches = 2.286 meters
+    Trajectory backwardPath = createBackwardTrajectory(0.762); // 30 inches = 0.762 meters
+    Trajectory forward2Path = createForwardTrajectory(0.762);  // 30 inches forward again
+    
+    Command armEngagementAuto = new InstantCommand(() -> m_robotDrive.resetOdometry(forwardPath.getInitialPose()))
+        .andThen(createSwerveAutoCommand(forwardPath))           // Drive forward 90"
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
+        .andThen(Commands.waitSeconds(0.5))                      // Pause briefly
+        .andThen(m_HorizontalArmSubsystem.moveToEngagedCommand()) // Engage arm
+        .andThen(Commands.waitSeconds(0.5))                      // Let arm settle
+        .andThen(new InstantCommand(() -> m_robotDrive.resetOdometry(backwardPath.getInitialPose())))
+        .andThen(createSwerveAutoCommand(backwardPath))          // Drive backward 30"
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
+        .andThen(m_HorizontalArmSubsystem.moveToRestCommand()) // Engage arm
+        .andThen(Commands.waitSeconds(1.0))                      // Pause 1 second
+        .andThen(new InstantCommand(() -> m_robotDrive.resetOdometry(forward2Path.getInitialPose())))
+        .andThen(createSwerveAutoCommand(forward2Path))          // Drive forward 30"
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
+        .andThen(new CoralAutoOn(m_coralSubsystem))                                    // Run coral
+        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)); // Final stop
+
   /**
    * Creates a straight-line trajectory for autonomous.
    *
@@ -345,6 +372,17 @@ public class RobotContainer {
           List.of(
               new Pose2d(0, 0, new Rotation2d(0)), // Start position
               new Pose2d(2.28, 0, new Rotation2d(0))  // End position (3 meters forward)
+          ),
+          new TrajectoryConfig(1, 1.0) // Max speed and acceleration
+      );
+  }
+
+  private Trajectory createStraightBackTrajectory() {
+    // 2.52 was done at Portland with #3 wheel dragging, so backing off to what it should be
+      return TrajectoryGenerator.generateTrajectory(
+          List.of(
+            new Pose2d(2.28, 0, new Rotation2d(0)), // Start position
+            new Pose2d(1.38, 0, new Rotation2d(0))  // End position (3 ft backward)
           ),
           new TrajectoryConfig(1, 1.0) // Max speed and acceleration
       );
@@ -365,6 +403,40 @@ public class RobotContainer {
           new TrajectoryConfig(2.0, 2.0) // Max speed and acceleration
       );
   }
+
+    /**
+     * Creates a forward trajectory for a specified distance
+     *
+     * @param distanceMeters Distance to travel forward in meters
+     * @return A trajectory that moves straight forward
+     */
+    private Trajectory createForwardTrajectory(double distanceMeters) {
+        return TrajectoryGenerator.generateTrajectory(
+            List.of(
+                new Pose2d(0, 0, new Rotation2d(0)),                   // Start position
+                new Pose2d(distanceMeters, 0, new Rotation2d(0))        // End position
+            ),
+            new TrajectoryConfig(1.0, 1.0) // Max speed 1 m/s, accel 1 m/s²
+        );
+    }
+
+    /**
+     * Creates a backward trajectory for a specified distance
+     * Uses reversed trajectory for proper backward motion - -1*distance on Forward doesn't always work!!!
+     *
+     * @param distanceMeters Distance to travel backward in meters
+     * @return A trajectory that moves straight backward
+     */
+    private Trajectory createBackwardTrajectory(double distanceMeters) {
+        return TrajectoryGenerator.generateTrajectory(
+            List.of(
+                new Pose2d(0, 0, new Rotation2d(0)),                    // Start position
+                new Pose2d(distanceMeters, 0, new Rotation2d(0))        // End position (positive)
+            ),
+            new TrajectoryConfig(1.0, 1.0)
+                .setReversed(true)  // THIS IS THE KEY - tells it to drive backward
+        );
+    }
 
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class.

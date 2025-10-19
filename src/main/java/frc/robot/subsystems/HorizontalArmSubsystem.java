@@ -63,12 +63,12 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     private boolean controlEnabled = false;
     
     // Constants - ARM GEOMETRY
-    private static final double GEAR_RATIO = 20.0;
+    private static final double GEAR_RATIO = 25.0;
     private static final double ARM_LENGTH_INCHES = 22.25; // From pivot to end - probably useless but have in here as 'doc'
     
     // Constants - POSITION TARGETS (in degrees)
     public static final double REST_ANGLE = 0.0;      // Horizontal, pointing back
-    public static final double ENGAGED_ANGLE = 170.0;    // 50° above horizontal eyeball and tune 
+    public static final double ENGAGED_ANGLE = 130.0;    // 50° above horizontal eyeball and tune 
     
     // Constants - MOTION PROFILE LIMITS
     // Start conservative, tune based on testing
@@ -118,6 +118,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         // SAFETY: Start with control DISABLED
         controlEnabled = false;
         SmartDashboard.putString("Arm/Status", "NOT ZEROED - Position at REST and press BACK button");
+        updateTopLevelStatus();
     }
     
     private void configureMotor() {
@@ -157,7 +158,8 @@ public class HorizontalArmSubsystem extends SubsystemBase {
             // Auto-zero when arm contacts limit switch
             encoder.setPosition(REST_ANGLE);
             controlEnabled = true;
-            SmartDashboard.putString("Arm/Status", "✅ Auto-zeroed at limit switch");
+            SmartDashboard.putString("Arm/Status", "Ready: Auto-zeroed at limit switch");
+            updateTopLevelStatus();
         }
         */
         
@@ -173,7 +175,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         
         // Control is enabled - normal operation
         SmartDashboard.putBoolean("Arm/Control Enabled", true);
-        SmartDashboard.putString("Arm/Status", "✅ Control Enabled");
+        SmartDashboard.putString("Arm/Status", "Ready: Control Enabled");
         
         // Update PID gains from dashboard if in calibration mode
         if (isCalibrationMode) {
@@ -267,6 +269,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         controlEnabled = true; // Enable control after zeroing
         SmartDashboard.putString("Arm/Status", "✅ Encoder zeroed - Control ENABLED");
         SmartDashboard.putBoolean("Arm/Control Enabled", true);
+        updateTopLevelStatus();
     }
     
     /**
@@ -278,6 +281,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         armMotor.stopMotor();
         SmartDashboard.putString("Arm/Status", "🛑 Control DISABLED");
         SmartDashboard.putBoolean("Arm/Control Enabled", false);
+        updateTopLevelStatus();
     }
     
     /**
@@ -320,7 +324,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Arm/Tune/kD", kD);
         SmartDashboard.putNumber("Arm/Tune/kG", kG);
         SmartDashboard.putString("Arm/Target", "REST");
-        SmartDashboard.putString("Arm/Status", "NOT ZEROED");
+        SmartDashboard.putString("Arm/Status", "WARNING: NOT ZEROED");
     }
 
     // Updating the full telemetry on the ARM - probably on a new TAB for initially and then go from there...
@@ -336,6 +340,14 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Arm/Gravity FF", calculateGravityFeedforward(setpoint.position));
     }
     
+    private void updateTopLevelStatus() {
+        if (controlEnabled) {
+            SmartDashboard.putString("ARM STATUS", "READY - Encoder Zeroed");
+        } else {
+            SmartDashboard.putString("ARM STATUS", "WARNING - NOT ZEROED - PRESS BACK at REST");
+        }
+    };
+
     public void stop() {
         armMotor.stopMotor();
     }
