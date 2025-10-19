@@ -135,7 +135,7 @@ public class RobotContainer {
     SmartDashboard.putNumber("Speed Multiplier", speedMultiplier);
     
     // Add prominent arm status display
-    SmartDashboard.putString("⚠️ ARM STATUS", "NOT ZEROED - Press BACK when at REST");
+    SmartDashboard.putString("ARM STATUS", "NOT ZEROED - Press BACK when at REST");
 
     // Configure default commands
     m_robotDrive.setDefaultCommand(
@@ -185,7 +185,7 @@ public class RobotContainer {
     // POV Up (0) - Move to REST position (0°)
     new POVButton(m_driverController, 0).onTrue(m_HorizontalArmSubsystem.moveToRestCommand());
     
-    // BACK button (7) - RESET ENCODER (⚠️ CRITICAL - Only press when arm is at REST!)
+    // BACK button (7) - RESET ENCODER (CRITICAL - Only press when arm is at REST!)
     new JoystickButton(m_driverController, 7).onTrue(m_HorizontalArmSubsystem.resetEncoderCommand());
     
     // START button (8) - Toggle calibration mode
