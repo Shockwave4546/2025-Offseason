@@ -10,22 +10,13 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.DriverStation;
 
-/**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
- * project.
- */
 public class Robot extends TimedRobot {
   private Command m_autonomousCommand;
 
   private RobotContainer m_robotContainer;
 
-  /**
-   * This function is run when the robot is first started up and should be used for any
-   * initialization code.
-   */
   @Override
   public void robotInit() {
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
@@ -39,7 +30,13 @@ public class Robot extends TimedRobot {
 
     Shuffleboard.getTab("Driver")
           .add("Camera Feed", camera);
-
+    
+    // ===== ARM SAFETY WARNING =====
+    // Display prominent warning about arm zeroing requirement
+    DriverStation.reportWarning(
+        "ARM NOT ZEROED - Position arm at REST and press BACK button before operating", 
+        false
+    );
   }
 
   /**
@@ -60,7 +57,11 @@ public class Robot extends TimedRobot {
 
   /** This function is called once each time the robot enters Disabled mode. */
   @Override
-  public void disabledInit() {}
+  public void disabledInit() {
+    // ===== SAFETY: Disable arm control when robot is disabled =====
+    // This prevents unexpected movement when re-enabling
+    m_robotContainer.getArmSubsystem().disableControl();
+  }
 
   @Override
   public void disabledPeriodic() {}
@@ -68,7 +69,15 @@ public class Robot extends TimedRobot {
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
   @Override
   public void autonomousInit() {
-    // Add in here to RESET the ARM's Encoder since everything MUST starts from AUTO mode 
+    // ===== ARM AUTO-RESET (SAFETY CHECKED) =====
+    // Only reset if arm control is not already enabled
+    // This assumes arm is at REST position at match start
+    if (!m_robotContainer.getArmSubsystem().isControlEnabled()) {
+      m_robotContainer.getArmSubsystem().resetEncoder();
+      DriverStation.reportWarning("Arm encoder auto-zeroed for autonomous", false);
+    }
+    
+    // Get selected autonomous command
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
     /*
@@ -96,6 +105,15 @@ public class Robot extends TimedRobot {
     // this line or comment it out.
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
+    }
+    
+    // ===== ARM SAFETY CHECK FOR TELEOP =====
+    // Warn if arm control is not enabled (encoder not zeroed)
+    if (!m_robotContainer.getArmSubsystem().isControlEnabled()) {
+      DriverStation.reportWarning(
+          "ARM NOT ZEROED - Position at REST and press BACK button", 
+          false
+      );
     }
   }
 

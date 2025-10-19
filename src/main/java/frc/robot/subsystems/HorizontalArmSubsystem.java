@@ -12,6 +12,7 @@ import com.revrobotics.spark.ClosedLoopSlot;
 import edu.wpi.first.math.controller.ArmFeedforward;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+// import edu.wpi.first.wpilibj.DigitalInput;  // UNCOMMENT when limit switch is added
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -27,13 +28,14 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
  * 
  * POSITIONS:
  * - REST: 0° (horizontal, pointing back, on bracket base with 'rubber bumper support')
- * - ENGAGED: 140° (above horizontal, pointing forward/up) - guess...will tune to find out end resulting angle
- * - Total rotation: 140° (smooth motion with no "smack") - see above Engaged angle
+ * - ENGAGED: 170° (above horizontal, pointing forward/up) - guess...will tune to find out end resulting angle
+ * - Total rotation: 170° (smooth motion with no "smack") - see above Engaged angle
  * 
  * CONTROL STRATEGY:
  * - Trapezoidal motion profiling for smooth acceleration/deceleration
  * - PID position control
  * - Gravity feedforward (kG) for holding against gravity
+ * - SOFTWARE INTERLOCK: Control disabled until encoder is zeroed
  */
 public class HorizontalArmSubsystem extends SubsystemBase {
     
@@ -41,6 +43,12 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     private final SparkMax armMotor;
     private final RelativeEncoder encoder;
     private final SparkClosedLoopController pidController;
+    
+    // ===== LIMIT SWITCH (FUTURE HARDWARE) =====
+    // UNCOMMENT these lines when limit switch is installed:
+    // private final DigitalInput restLimitSwitch = new DigitalInput(0); // TODO: Set DIO port
+    // private static final boolean LIMIT_SWITCH_INSTALLED = true;
+    private static final boolean LIMIT_SWITCH_INSTALLED = false; // Change to true when installed
     
     // Motion Profile
     private final TrapezoidProfile profile;
@@ -50,13 +58,17 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     // Feedforward
     private final ArmFeedforward feedforward;
     
+    // ===== SAFETY INTERLOCK =====
+    // Prevents arm from moving until encoder is properly zeroed
+    private boolean controlEnabled = false;
+    
     // Constants - ARM GEOMETRY
     private static final double GEAR_RATIO = 20.0;
     private static final double ARM_LENGTH_INCHES = 22.25; // From pivot to end - probably useless but have in here as 'doc'
     
     // Constants - POSITION TARGETS (in degrees)
-    public static final double REST_ANGLE = 0;      // Horizontal, pointing back
-    public static final double ENGAGED_ANGLE = 170.0;    // 5 0° above horizontal eyeball and tune 
+    public static final double REST_ANGLE = 0.0;      // Horizontal, pointing back
+    public static final double ENGAGED_ANGLE = 170.0;    // 50° above horizontal eyeball and tune 
     
     // Constants - MOTION PROFILE LIMITS
     // Start conservative, tune based on testing
@@ -102,13 +114,17 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         
         // Dashboard values
         initializeDashboard();
+        
+        // SAFETY: Start with control DISABLED
+        controlEnabled = false;
+        SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED - Position at REST and press BACK button");
     }
     
     private void configureMotor() {
         SparkMaxConfig config = new SparkMaxConfig();
         
         // Motor configuration
-        config.inverted(true);  // TODO: Check direction in testing - DIRECTION!!! [make sure to use the without ARM 1st and then add back the ARM]
+        config.inverted(true);  // Direction confirmed in testing
         config.idleMode(SparkMaxConfig.IdleMode.kBrake);    // Brake Mode, dont need it to squeeze too much on Algea
         config.smartCurrentLimit(30);  // most likely can go even way less than this...right now assuming using NEO, otherwise look up NEO550/others stalk
         
@@ -134,6 +150,31 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     // So using the periodic this will calc and update the pidController in the MaxSpark...need to check to make sure it's working...or not
     @Override
     public void periodic() {
+        // ===== LIMIT SWITCH AUTO-ZERO (FUTURE FEATURE) =====
+        // UNCOMMENT when limit switch is installed:
+        /*
+        if (LIMIT_SWITCH_INSTALLED && isAtRestSwitch() && !controlEnabled) {
+            // Auto-zero when arm contacts limit switch
+            encoder.setPosition(REST_ANGLE);
+            controlEnabled = true;
+            SmartDashboard.putString("Arm/Status", "✅ Auto-zeroed at limit switch");
+        }
+        */
+        
+        // ===== SAFETY INTERLOCK CHECK =====
+        if (!controlEnabled) {
+            // Don't run control until encoder is zeroed
+            armMotor.stopMotor();
+            updateTelemetry();
+            SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED - Position at REST and press BACK button");
+            SmartDashboard.putBoolean("Arm/Control Enabled", false);
+            return; // Exit periodic - don't run motion control
+        }
+        
+        // Control is enabled - normal operation
+        SmartDashboard.putBoolean("Arm/Control Enabled", true);
+        SmartDashboard.putString("Arm/Status", "✅ Control Enabled");
+        
         // Update PID gains from dashboard if in calibration mode
         if (isCalibrationMode) {
             updateGainsFromDashboard();
@@ -143,7 +184,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         setpoint = profile.calculate(0.02, setpoint, goal);  // 20ms loop time
         
         // Calculate feedforward based on current angle
-        // Arm angle measured from horizontal (0° = horizontal) = REST; 90 = Vertical; 140 = ENGAGED
+        // Arm angle measured from horizontal (0° = horizontal) = REST; 90 = Vertical; 170 = ENGAGED
         // Need to convert to angle from vertical for cosine calculation
         double armAngleFromHorizontal = setpoint.position;
         double gravityFF = calculateGravityFeedforward(armAngleFromHorizontal);
@@ -164,20 +205,29 @@ public class HorizontalArmSubsystem extends SubsystemBase {
      * Calculate gravity feedforward based on arm angle
      * Compensates for gravitational torque on the arm
      * 
-     * For horizontal arm lifting up:
-     * - At 180° (horizontal back): cos(180-90) = cos(90) = 0 (no gravity effect perpendicular)
-     * - At 90° (pointing straight up): cos(0) = 1 (maximum support needed)
-     * - At 40° (engaged): cos(140) = moderate support
+     * Angle system: 0° = horizontal (rest), 90° = vertical up, 170° = engaged
+     * 
+     * Gravity effect:
+     * - At 0° (horizontal): cos(0°) = 1.0 (maximum gravity torque)
+     * - At 90° (vertical): cos(90°) = 0 (no gravity torque)
+     * - At 170°: cos(170°) = -0.98 (gravity helps pull arm forward)
      */
     private double calculateGravityFeedforward(double angleDegrees) {
-        // Convert angle: horizontal = 0 (REST) in our system, vertical up = 90°  and 140 is the Engaged Angle
-        // For gravity FF: 
-        //  0 = horizontal => cos(0) = 1 (max gravity torque)
-        // 90 = vertical => cos(90) = 0 (no gravity torque - transisent)
-        // 140 = ENGAGED = cos(140) = -0.77 (gravity will want to pull the arm DOWN)
         double angleRadians = Math.toRadians(angleDegrees);
         return kG * Math.cos(angleRadians);
     }
+    
+    // ===== LIMIT SWITCH METHODS (FUTURE HARDWARE) =====
+    // UNCOMMENT when limit switch is installed:
+    /*
+    private boolean isAtRestSwitch() {
+        return !restLimitSwitch.get(); // Assumes normally-open switch
+    }
+    
+    public boolean hasLimitSwitch() {
+        return LIMIT_SWITCH_INSTALLED;
+    }
+    */
     
     // ===== POSITION COMMANDS =====
     
@@ -207,8 +257,34 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         SmartDashboard.putBoolean("Arm/Calibration Mode", false);
     }
     
+    /**
+     * Reset encoder to REST position (0°)
+     * CRITICAL: Only call this when arm is physically at REST position!
+     * This also ENABLES control after zeroing
+     */
     public void resetEncoder() {
-        encoder.setPosition(REST_ANGLE);  // Manually position at rest, then call this - this is critically important, need to make sure at init this is CALLED!!! Set to be "0"
+        encoder.setPosition(REST_ANGLE);
+        controlEnabled = true; // Enable control after zeroing
+        SmartDashboard.putString("Arm/Status", "✅ Encoder zeroed - Control ENABLED");
+        SmartDashboard.putBoolean("Arm/Control Enabled", true);
+    }
+    
+    /**
+     * Disable control (safety feature)
+     * Call this to prevent arm from moving
+     */
+    public void disableControl() {
+        controlEnabled = false;
+        armMotor.stopMotor();
+        SmartDashboard.putString("Arm/Status", "🛑 Control DISABLED");
+        SmartDashboard.putBoolean("Arm/Control Enabled", false);
+    }
+    
+    /**
+     * Check if control is enabled
+     */
+    public boolean isControlEnabled() {
+        return controlEnabled;
     }
     
     // Read kP, kI, kD, kG from the LIVE Dashboard and use to update in live...using this to help tune....then edit the default values but can always tune again from that
@@ -238,11 +314,13 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     // Put the kG, kP, kI, kD, etc up on the Dashboard
     private void initializeDashboard() {
         SmartDashboard.putBoolean("Arm/Calibration Mode", false);
+        SmartDashboard.putBoolean("Arm/Control Enabled", false);
         SmartDashboard.putNumber("Arm/Tune/kP", kP);
         SmartDashboard.putNumber("Arm/Tune/kI", kI);
         SmartDashboard.putNumber("Arm/Tune/kD", kD);
         SmartDashboard.putNumber("Arm/Tune/kG", kG);
         SmartDashboard.putString("Arm/Target", "REST");
+        SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED");
     }
 
     // Updating the full telemetry on the ARM - probably on a new TAB for initially and then go from there...
@@ -279,7 +357,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     
     // ===== COMMAND FACTORIES - think of these as 'methods' that can be called directly as COMMAND from up top, this makes this subsystem almost completely independent
     /**
-     * Command to move arm to REST position (180°)
+     * Command to move arm to REST position (0°)
      * Returns when arm reaches target
      */
     public Command moveToRestCommand() {
@@ -289,7 +367,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     }
     
     /**
-     * Command to move arm to ENGAGED position (40°)
+     * Command to move arm to ENGAGED position (170°)
      * Returns when arm reaches target
      */
     public Command moveToEngagedCommand() {
@@ -300,13 +378,21 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     
     /**
      * Instant command to reset encoder
-     * Use this when arm is manually positioned at REST - CAREFUL!!! Only do this at init...either manually or part of AUTO mode or something.  CALL ONCE ONLY!!!
+     * CRITICAL: Only use when arm is physically at REST position!
+     * This also enables control after zeroing
      */
     public Command resetEncoderCommand() {
         return runOnce(this::resetEncoder)
             .withName("ResetArmEncoder");
     }
     
+    /**
+     * Command to disable control (safety)
+     */
+    public Command disableControlCommand() {
+        return runOnce(this::disableControl)
+            .withName("DisableArmControl");
+    }
     
     /**
      * Command to enable calibration mode

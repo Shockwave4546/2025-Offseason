@@ -133,6 +133,9 @@ public class RobotContainer {
 
     // Add shuffleboard speed multiplier
     SmartDashboard.putNumber("Speed Multiplier", speedMultiplier);
+    
+    // Add prominent arm status display
+    SmartDashboard.putString("⚠️ ARM STATUS", "NOT ZEROED - Press BACK when at REST");
 
     // Configure default commands
     m_robotDrive.setDefaultCommand(
@@ -174,37 +177,47 @@ public class RobotContainer {
     new POVButton(m_driverController, 270).onTrue(new ServoFullOn(m_ServoSubsystem)); 
     // Right D-Pad = Full Off...This is when Arm is on the Outside as seem from outside.  Flip the Extension
     new POVButton(m_driverController, 90).onTrue(new ServoFullOff(m_ServoSubsystem)); 
-    // Added these buttons for the ARM - added 10/11/25 + 10/18/25
+    
+    // ===== ARM CONTROLS =====
+    // POV Down (180) - Move to ENGAGED position (170°)
     new POVButton(m_driverController, 180).onTrue(m_HorizontalArmSubsystem.moveToEngagedCommand());
+    
+    // POV Up (0) - Move to REST position (0°)
     new POVButton(m_driverController, 0).onTrue(m_HorizontalArmSubsystem.moveToRestCommand());
-//    new POVButton(m_driverController, 180).whileTrue(m_HorizontalArmSubsystem.manualUpCommand());
-//    new POVButton(m_driverController, 0).whileTrue(m_HorizontalArmSubsystem.manualDownCommand());
+    
+    // BACK button (7) - RESET ENCODER (⚠️ CRITICAL - Only press when arm is at REST!)
     new JoystickButton(m_driverController, 7).onTrue(m_HorizontalArmSubsystem.resetEncoderCommand());
+    
+    // START button (8) - Toggle calibration mode
     new JoystickButton(m_driverController, 8).onTrue(
         Commands.either(
-        m_HorizontalArmSubsystem.disableCalibrationCommand(),
-        m_HorizontalArmSubsystem.enableCalibrationCommand(),
-        () -> SmartDashboard.getBoolean("Arm/Calibration Mode", false)
+            m_HorizontalArmSubsystem.disableCalibrationCommand(),
+            m_HorizontalArmSubsystem.enableCalibrationCommand(),
+            () -> SmartDashboard.getBoolean("Arm/Calibration Mode", false)
         )
     );
+    
+    // MANUAL TESTING (UNCOMMENT for direction testing)
+    // new POVButton(m_driverController, 0).whileTrue(m_HorizontalArmSubsystem.manualUpCommand());
+    // new POVButton(m_driverController, 180).whileTrue(m_HorizontalArmSubsystem.manualDownCommand());
 
-    //When right bumper pessed set wheels to X mode
+    //When X button pressed set wheels to X mode
     new JoystickButton(m_driverController, XboxController.Button.kX.value)
         .whileTrue(new RunCommand(
             () -> m_robotDrive.setX(),
             m_robotDrive));
 
-    //when Left bumper pressed zero the navx heading once
+    //when B button pressed zero the navx heading once
     new JoystickButton(m_driverController, XboxController.Button.kB.value)
         .onTrue(new InstantCommand(
             () -> m_robotDrive.zeroHeading(),
             m_robotDrive));
 
-    //While A button is Held Activate robot-relative
+    //While Y button is Held Activate robot-relative
     new JoystickButton(m_driverController, XboxController.Button.kY.value)
         .onTrue(new InstantCommand(() -> robotOriented = true));
 
-    //While A button is not Held deactivate robot-relative
+    //While Y button is not Held deactivate robot-relative
     new JoystickButton(m_driverController, XboxController.Button.kY.value)
         .onFalse(new InstantCommand(() -> robotOriented = false));
 
@@ -219,7 +232,7 @@ public class RobotContainer {
     //     getNextSnapAngleCCW(m_robotDrive.getHeading()+180)));
 
 
-    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    // When RT is mostly pressed, run the Coral subsystem at 18% speed
     new Trigger(() -> m_driverController.getRightTriggerAxis() > 0.1 && m_driverController.getRightTriggerAxis() < 0.7)
         .whileTrue(new RunCommand(
             () -> m_coralSubsystem.setRollerSpeed(0.18),
@@ -228,7 +241,7 @@ public class RobotContainer {
             () -> m_coralSubsystem.stopRoller(),
             m_coralSubsystem));
 
-    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    // When RT is fully pressed, run the Coral subsystem at 50% speed
     new Trigger(() -> m_driverController.getRightTriggerAxis() > 0.71)
         .whileTrue(new RunCommand(
             () -> m_coralSubsystem.setRollerSpeed(0.5),
@@ -237,7 +250,7 @@ public class RobotContainer {
             () -> m_coralSubsystem.stopRoller(),
             m_coralSubsystem));
 
-    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    // When LT is mostly pressed, run the Coral subsystem at -18% speed
     new Trigger(() -> m_driverController.getLeftTriggerAxis() > 0.1 && m_driverController.getLeftTriggerAxis() < 0.7)
         .whileTrue(new RunCommand(
             () -> m_coralSubsystem.setRollerSpeed(-0.18),
@@ -246,7 +259,7 @@ public class RobotContainer {
             () -> m_coralSubsystem.stopRoller(),
             m_coralSubsystem));
 
-    // When LT and RT are mostly pressed, run the Coral subsystem at 50% speed
+    // When LT is fully pressed, run the Coral subsystem at -50% speed
     new Trigger(() -> m_driverController.getLeftTriggerAxis() > 0.71)
         .whileTrue(new RunCommand(
             () -> m_coralSubsystem.setRollerSpeed(-0.5),
@@ -360,5 +373,12 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     return autoChooser.getSelected();
+  }
+  
+  /**
+   * Get the arm subsystem (for Robot.java to access)
+   */
+  public HorizontalArmSubsystem getArmSubsystem() {
+    return m_HorizontalArmSubsystem;
   }
 }
