@@ -117,7 +117,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         
         // SAFETY: Start with control DISABLED
         controlEnabled = false;
-        SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED - Position at REST and press BACK button");
+        SmartDashboard.putString("Arm/Status", "NOT ZEROED - Position at REST and press BACK button");
     }
     
     private void configureMotor() {
@@ -166,7 +166,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
             // Don't run control until encoder is zeroed
             armMotor.stopMotor();
             updateTelemetry();
-            SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED - Position at REST and press BACK button");
+            SmartDashboard.putString("Arm/Status", "NOT ZEROED - Position at REST and press BACK button");
             SmartDashboard.putBoolean("Arm/Control Enabled", false);
             return; // Exit periodic - don't run motion control
         }
@@ -320,7 +320,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Arm/Tune/kD", kD);
         SmartDashboard.putNumber("Arm/Tune/kG", kG);
         SmartDashboard.putString("Arm/Target", "REST");
-        SmartDashboard.putString("Arm/Status", "⚠️ NOT ZEROED");
+        SmartDashboard.putString("Arm/Status", "NOT ZEROED");
     }
 
     // Updating the full telemetry on the ARM - probably on a new TAB for initially and then go from there...
