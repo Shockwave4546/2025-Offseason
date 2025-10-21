@@ -44,6 +44,7 @@ import frc.robot.commands.ServoFullOff;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.commands.CoralAutoOn;
 import frc.robot.subsystems.HorizontalArmSubsystem ;
+import frc.robot.commands.ArmEngagementAuto;
 
 
 /*
@@ -310,6 +311,13 @@ public class RobotContainer {
     Command resetSCurve = new InstantCommand(() -> m_robotDrive.resetOdometry(sCurvePath.getInitialPose()))
         .andThen(sCurveAuto);
 
+    // Call a new Command ArmEngagementAuto which is a long command sequence that had to use timed driving because the trajectory wasn't working right
+    Command armEngagementAuto = new ArmEngagementAuto(
+        m_robotDrive, 
+        m_HorizontalArmSubsystem, 
+        m_coralSubsystem
+    );
+
     autoChooser.setDefaultOption("BOB/GBTG Full Algae + Coral", armEngagementAuto);
     //    autoChooser.setDefaultOption("Straight Path", resetStraight);
     autoChooser.addOption("Straight Path", resetStraight);
@@ -337,29 +345,6 @@ public class RobotContainer {
         m_robotDrive
     );
   }
-
-// ===== NEW: Arm Engagement Auto =====
-    // Create custom trajectories for arm engagement sequence
-    Trajectory forwardPath = createForwardTrajectory(2.286);  // 90 inches = 2.286 meters
-    Trajectory backwardPath = createBackwardTrajectory(0.762); // 30 inches = 0.762 meters
-    Trajectory forward2Path = createForwardTrajectory(0.762);  // 30 inches forward again
-    
-    Command armEngagementAuto = new InstantCommand(() -> m_robotDrive.resetOdometry(forwardPath.getInitialPose()))
-        .andThen(createSwerveAutoCommand(forwardPath))           // Drive forward 90"
-        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
-        .andThen(Commands.waitSeconds(0.5))                      // Pause briefly
-        .andThen(m_HorizontalArmSubsystem.moveToEngagedCommand()) // Engage arm
-        .andThen(Commands.waitSeconds(0.5))                      // Let arm settle
-        .andThen(new InstantCommand(() -> m_robotDrive.resetOdometry(backwardPath.getInitialPose())))
-        .andThen(createSwerveAutoCommand(backwardPath))          // Drive backward 30"
-        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
-        .andThen(m_HorizontalArmSubsystem.moveToRestCommand()) // Engage arm
-        .andThen(Commands.waitSeconds(1.0))                      // Pause 1 second
-        .andThen(new InstantCommand(() -> m_robotDrive.resetOdometry(forward2Path.getInitialPose())))
-        .andThen(createSwerveAutoCommand(forward2Path))          // Drive forward 30"
-        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)) // Stop
-        .andThen(new CoralAutoOn(m_coralSubsystem))                                    // Run coral
-        .andThen(() -> m_robotDrive.drive(0, 0, 0, false, false)); // Final stop
 
   /**
    * Creates a straight-line trajectory for autonomous.
