@@ -68,7 +68,7 @@ public class HorizontalArmSubsystem extends SubsystemBase {
     
     // Constants - POSITION TARGETS (in degrees)
     public static final double REST_ANGLE = 0.0;      // Horizontal, pointing back
-    public static final double ENGAGED_ANGLE = 130.0;    // 50° above horizontal eyeball and tune 
+    public static final double ENGAGED_ANGLE = 140.0;    // 50° above horizontal eyeball and tune - initially at 130
     
     // Constants - MOTION PROFILE LIMITS
     // Start conservative, tune based on testing

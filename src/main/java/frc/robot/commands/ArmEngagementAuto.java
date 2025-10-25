@@ -34,7 +34,8 @@ public class ArmEngagementAuto extends SequentialCommandGroup {
     
     // Distance constants (in meters)
     private static final double FORWARD_DIST = 2.286;   // 90 inches
-    private static final double SHORT_DIST_TIME = 0.8;  // Time to drive 30 inches - need to tune this!!! Bad bad bad way but not enough time to deal with pathplanner
+    private static final double SHORT_DIST_TIME_B = 0.8;  // Time to drive 30 inches - need to tune this!!! Bad bad bad way but not enough time to deal with pathplanner
+    private static final double SHORT_DIST_TIME_F = 0.74;  // Time to drive 30 inches - need to tune this!!! Bad bad bad way but not enough time to deal with pathplanner
     private static final double DRIVE_SPEED = 0.4;      // Speed for timed driving (tune this)
     
     public ArmEngagementAuto(
@@ -69,16 +70,17 @@ public class ArmEngagementAuto extends SequentialCommandGroup {
             Commands.run(
                 () -> driveSubsystem.drive(-DRIVE_SPEED, 0, 0, false, false),
                 driveSubsystem
-            ).withTimeout(SHORT_DIST_TIME),
+            ).withTimeout(SHORT_DIST_TIME_B),
             new InstantCommand(() -> driveSubsystem.drive(0, 0, 0, false, false)),
             armSubsystem.moveToRestCommand(),   // Put the ARM back to REST position
-            Commands.waitSeconds(1.0),
+            Commands.waitSeconds(3.0),
             // Drive forward 30 inches (timed) - NEED TO TUNE THIS!!!  Hopefully the back and forth time is the SAME!!!
             Commands.run(
                 () -> driveSubsystem.drive(DRIVE_SPEED, 0, 0, false, false),
                 driveSubsystem
-            ).withTimeout(SHORT_DIST_TIME),
+            ).withTimeout(SHORT_DIST_TIME_F),
             new InstantCommand(() -> driveSubsystem.drive(0, 0, 0, false, false)),
+            Commands.waitSeconds(0.5),  // Pause for 0.5s before sending out the Coral.
             // Run coral intake
             new CoralAutoOn(coralSubsystem),
             new InstantCommand(() -> driveSubsystem.drive(0, 0, 0, false, false))
